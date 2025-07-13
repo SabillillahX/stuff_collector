@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/responsive_constants.dart';
 import '../../../features/item_management/domain/models/item_model.dart';
+import '../../../features/item_management/presentation/pages/all_items_page.dart';
 
 class RecentItemsCard extends StatelessWidget {
   final List<Item> items;
@@ -42,7 +43,11 @@ class RecentItemsCard extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () {
-                  // Navigate to all items
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const AllItemsPage(),
+                    ),
+                  );
                 },
                 child: Text(
                   'View All',
@@ -83,54 +88,168 @@ class RecentItemsCard extends StatelessWidget {
   }
 
   Widget _buildItemTile(BuildContext context, Item item, bool isDarkMode) {
+    // Format price with null safety check
+    final priceFormatted = 'Rp ${item.price.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    )}';
+
+    // Format date
+    final now = DateTime.now();
+    final difference = now.difference(item.createdAt).inDays;
+    final dateFormatted = difference == 0 
+        ? 'Today'
+        : difference == 1 
+            ? 'Yesterday'
+            : '${difference} days ago';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[700] : Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[600]! : Colors.grey[200]!,
+          width: 1,
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF011936).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _getCategoryIcon(item.category),
-              color: const Color(0xFF011936),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w500,
-                    color: isDarkMode ? Colors.white : Colors.black87,
-                  ),
+          // Header with icon and name
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF011936).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Text(
+                child: Icon(
+                  _getCategoryIcon(item.category),
+                  color: const Color(0xFF011936),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Code: ${item.code}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF011936).withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Details grid
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailItem(
+                  'Category',
                   item.category,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  Icons.category,
+                  isDarkMode,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDetailItem(
+                  'Quantity',
+                  item.quantity.toString(),
+                  Icons.inventory,
+                  isDarkMode,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailItem(
+                  'Price',
+                  priceFormatted,
+                  Icons.attach_money,
+                  isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDetailItem(
+                  'Added',
+                  dateFormatted,
+                  Icons.schedule,
+                  isDarkMode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailItem(String label, String value, IconData icon, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!,
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
           Text(
-            'Qty: ${item.quantity}',
+            value,
             style: GoogleFonts.inter(
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF011936),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDarkMode ? Colors.white : Colors.black87,
             ),
           ),
         ],

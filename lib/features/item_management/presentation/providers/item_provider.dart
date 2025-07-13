@@ -36,22 +36,28 @@ class ItemNotifier extends StateNotifier<ItemState> {
       Item(
         id: '1',
         name: 'Laptop',
+        code: 'LTP001',
         category: 'Electronics',
         quantity: 5,
+        price: 15000000.0,
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       Item(
         id: '2',
         name: 'Office Chair',
+        code: 'CHR001',
         category: 'Furniture',
         quantity: 10,
+        price: 2500000.0,
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
       ),
       Item(
         id: '3',
         name: 'Notebook',
+        code: 'NTB001',
         category: 'Stationery',
         quantity: 50,
+        price: 25000.0,
         createdAt: DateTime.now(),
       ),
     ];

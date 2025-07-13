@@ -9,7 +9,9 @@ import '../../domain/models/item_model.dart';
 import '../providers/item_provider.dart';
 
 class AddItemPage extends ConsumerStatefulWidget {
-  const AddItemPage({Key? key}) : super(key: key);
+  final Item? itemToEdit;
+  
+  const AddItemPage({Key? key, this.itemToEdit}) : super(key: key);
 
   @override
   ConsumerState<AddItemPage> createState() => _AddItemPageState();
@@ -17,7 +19,9 @@ class AddItemPage extends ConsumerStatefulWidget {
 
 class _AddItemPageState extends ConsumerState<AddItemPage> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
   String _selectedCategory = 'Electronics';
 
   final List<String> _categories = [
@@ -29,10 +33,31 @@ class _AddItemPageState extends ConsumerState<AddItemPage> {
     'Others',
   ];
 
+  bool get _isEditMode => widget.itemToEdit != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditMode) {
+      _initializeEditMode();
+    }
+  }
+
+  void _initializeEditMode() {
+    final item = widget.itemToEdit!;
+    _nameController.text = item.name;
+    _codeController.text = item.code;
+    _quantityController.text = item.quantity.toString();
+    _priceController.text = item.price.toStringAsFixed(0);
+    _selectedCategory = item.category;
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
+    _codeController.dispose();
     _quantityController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -46,7 +71,7 @@ class _AddItemPageState extends ConsumerState<AddItemPage> {
       },
       child: Scaffold(
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[50],
-        appBar: const CustomAppBar(title: 'Add New Item'),
+        appBar: CustomAppBar(title: _isEditMode ? 'Edit Item' : 'Add New Item'),
         body: SingleChildScrollView(
           padding: ResponsiveConstants.getResponsivePadding(context),
           child: Column(
@@ -85,16 +110,27 @@ class _AddItemPageState extends ConsumerState<AddItemPage> {
                       hasError: false,
                     ),
                     const SizedBox(height: 16),
+
+                    CustomTextField(
+                      controller: _codeController,
+                      hint: 'Enter item code',
+                      label: 'Item Code',
+                      hasError: false,
+                    ),
+                    const SizedBox(height: 16),
       
                     _buildCategoryDropdown(isDarkMode),
                     const SizedBox(height: 16),
       
                     _buildQuantityField(isDarkMode),
+                    const SizedBox(height: 16),
+
+                    _buildPriceField(isDarkMode),
                     const SizedBox(height: 32),
       
                     CustomButton(
-                      label: 'Add Item',
-                      onPressed: _addItem,
+                      label: _isEditMode ? 'Update Item' : 'Add Item',
+                      onPressed: _submitItem,
                     ),
                   ],
                 ),
@@ -337,8 +373,71 @@ class _AddItemPageState extends ConsumerState<AddItemPage> {
     );
   }
 
-  void _addItem() {
-    if (_nameController.text.isEmpty || _quantityController.text.isEmpty) {
+  Widget _buildPriceField(bool isDarkMode) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final fontSize = screenWidth < 600 ? 12.0 : 14.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Price',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: fontSize,
+            color: isDarkMode ? Colors.white : Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: _priceController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Rp. 0',
+            hintStyle: TextStyle(fontSize: fontSize - 1, color: Colors.grey[500]),
+            
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: screenWidth < 600 ? 12.0 : 14.0,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!, width: 1.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF011936), width: 1.5),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!, width: 1.0),
+            ),
+            filled: true,
+            fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+          ),
+          onChanged: (value) {
+            // Allow numbers and decimal point
+            if (value.isNotEmpty && !RegExp(r'^\d*\.?\d*$').hasMatch(value)) {
+              _priceController.text = value.replaceAll(RegExp(r'[^0-9.]'), '');
+              _priceController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _priceController.text.length),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  void _submitItem() {
+    if (_nameController.text.isEmpty || 
+        _codeController.text.isEmpty ||
+        _quantityController.text.isEmpty ||
+        _priceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
       );
@@ -353,19 +452,61 @@ class _AddItemPageState extends ConsumerState<AddItemPage> {
       return;
     }
 
-    final newItem = Item(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: _nameController.text,
-      category: _selectedCategory,
-      quantity: quantity,
-      createdAt: DateTime.now(),
-    );
+    final price = double.tryParse(_priceController.text);
+    if (price == null || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid price (minimum 0.01)')),
+      );
+      return;
+    }
 
-    ref.read(itemProvider.notifier).addItem(newItem);
+    if (_isEditMode) {
+      // Update existing item
+      final updatedItem = widget.itemToEdit!.copyWith(
+        name: _nameController.text,
+        code: _codeController.text,
+        category: _selectedCategory,
+        quantity: quantity,
+        price: price,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Item added successfully!')),
-    );
+      ref.read(itemProvider.notifier).updateItem(updatedItem);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${updatedItem.name} updated successfully!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    } else {
+      // Add new item
+      final newItem = Item(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text,
+        code: _codeController.text,
+        category: _selectedCategory,
+        quantity: quantity,
+        price: price,
+        createdAt: DateTime.now(),
+      );
+
+      ref.read(itemProvider.notifier).addItem(newItem);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${newItem.name} added successfully!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
 
     Navigator.pop(context);
   }

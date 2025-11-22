@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,10 +8,10 @@ import '../../../../core/widgets/common/custom_app_bar.dart';
 import '../../../../core/widgets/common/stats_card.dart';
 import '../../../../core/widgets/common/recent_items_card.dart';
 import '../../../../core/widgets/common/chart_card.dart';
-import '../../../item_management/domain/models/item_model.dart';
+import '../../../../core/domain/models/item_model.dart';
 import '../../../item_management/presentation/providers/item_provider.dart';
 import '../../../item_management/presentation/pages/add_item_page.dart';
-import '../../../auth/presentation/providers/login_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -21,7 +23,7 @@ class DashboardPage extends ConsumerWidget {
 
     return WillPopScope(
       onWillPop: () async {
-        return await _showExitDialog(context);
+        return await _showExitDialog(context, ref);
       },
       child: Scaffold(
         body: Stack(
@@ -30,12 +32,10 @@ class DashboardPage extends ConsumerWidget {
             Positioned.fill(
               child: Container(
                 color: Colors.grey[50],
-                child: CustomPaint(
-                  painter: BackgroundPatternPainter(),
-                ),
+                child: CustomPaint(painter: BackgroundPatternPainter()),
               ),
             ),
-            
+
             // Main content
             Scaffold(
               backgroundColor: Colors.transparent,
@@ -43,37 +43,31 @@ class DashboardPage extends ConsumerWidget {
                 title: 'Dashboard',
                 actions: [
                   PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: Colors.black87,
-                    ),
+                    icon: Icon(Icons.more_vert, color: Colors.black87),
                     onSelected: (value) {
                       if (value == 'logout') {
                         _showLogoutDialog(context, ref);
                       }
                     },
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem<String>(
-                        value: 'logout',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.logout,
-                              color: Colors.red,
-                              size: 20,
+                    itemBuilder:
+                        (BuildContext context) => [
+                          PopupMenuItem<String>(
+                            value: 'logout',
+                            child: Row(
+                              children: [
+                                Icon(Icons.logout, color: Colors.red, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Logout',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Logout',
-                              style: GoogleFonts.inter(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                          ),
+                        ],
                   ),
                 ],
               ),
@@ -83,19 +77,19 @@ class DashboardPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Welcome Section
-                    _buildWelcomeSection(context),
+                    _buildWelcomeSection(context, ref),
                     const SizedBox(height: 24),
-      
+
                     // Statistics Cards
                     _buildStatsSection(context, itemsState.items),
                     const SizedBox(height: 24),
-      
+
                     // Chart Section
                     if (itemsState.items.isNotEmpty) ...[
                       ChartCard(items: itemsState.items),
                       const SizedBox(height: 24),
                     ],
-      
+
                     // Recent Items Section
                     RecentItemsCard(items: itemsState.items),
                   ],
@@ -105,13 +99,18 @@ class DashboardPage extends ConsumerWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const AddItemPage()),
+                    MaterialPageRoute(
+                      builder: (context) => const AddItemPage(),
+                    ),
                   );
                 },
-                icon: const Icon(Icons.add, color: Colors.white,),
+                icon: const Icon(Icons.add, color: Colors.white),
                 label: Text(
                   'Add Item',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 backgroundColor: const Color(0xFF011936),
               ),
@@ -122,122 +121,144 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Future<bool> _showExitDialog(BuildContext context) async {
+  Future<bool> _showExitDialog(BuildContext context, WidgetRef ref) async {
     return await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  Colors.grey[50]!,
-                ],
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.exit_to_app,
-                    color: Colors.orange,
-                    size: 32,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.white, Colors.grey[50]!],
                   ),
                 ),
-                const SizedBox(height: 16),
-                
-                // Title
-                Text(
-                  'Keluar Aplikasi',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                
-                // Message
-                Text(
-                  'Apakah Anda yakin ingin keluar dari aplikasi?',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                
-                // Buttons
-                Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(false);
-                        },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: Colors.grey[300]!),
-                          ),
-                        ),
-                        child: Text(
-                          'Batal',
-                          style: GoogleFonts.inter(
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                    // Icon
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.exit_to_app,
+                        color: Colors.orange,
+                        size: 32,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(true);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Text(
-                          'Keluar',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                    const SizedBox(height: 16),
+
+                    // Title
+                    Text(
+                      'Keluar Aplikasi',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Message
+                    Text(
+                      'Apakah Anda yakin ingin keluar dari aplikasi?',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(false);
+                            },
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: Colors.grey[300]!),
+                              ),
+                            ),
+                            child: Text(
+                              'Batal',
+                              style: GoogleFonts.inter(
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginPage(),
+                                ),
+                              );
+
+                              try {
+                                ref.read(authProvider.notifier).signOut();
+
+                                if (context.mounted) {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginPage(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Gagal Logout: $e')),
+                                  );
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              'Keluar',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
-    ) ?? false;
+              ),
+            );
+          },
+        ) ??
+        false;
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
@@ -256,10 +277,7 @@ class DashboardPage extends ConsumerWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  Colors.grey[50]!,
-                ],
+                colors: [Colors.white, Colors.grey[50]!],
               ),
             ),
             child: Column(
@@ -272,14 +290,10 @@ class DashboardPage extends ConsumerWidget {
                     color: Colors.red.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.logout,
-                    color: Colors.red,
-                    size: 32,
-                  ),
+                  child: Icon(Icons.logout, color: Colors.red, size: 32),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Title
                 Text(
                   'Logout',
@@ -290,7 +304,7 @@ class DashboardPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                
+
                 // Message
                 Text(
                   'Apakah Anda yakin ingin keluar dari akun Anda?',
@@ -301,7 +315,7 @@ class DashboardPage extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Buttons
                 Row(
                   children: [
@@ -332,15 +346,17 @@ class DashboardPage extends ConsumerWidget {
                         onPressed: () async {
                           // Close the logout dialog first
                           Navigator.of(context).pop();
-                          
+
                           // Perform logout immediately
                           try {
-                            await ref.read(loginProvider.notifier).logout();
-                            
+                            await ref.read(authProvider.notifier).logout();
+
                             // Navigate to login page and clear all routes
                             if (context.mounted) {
                               Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (context) => const LoginPage()),
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginPage(),
+                                ),
                                 (route) => false,
                               );
                             }
@@ -349,7 +365,9 @@ class DashboardPage extends ConsumerWidget {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Logout failed: ${e.toString()}'),
+                                  content: Text(
+                                    'Logout failed: ${e.toString()}',
+                                  ),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -366,9 +384,7 @@ class DashboardPage extends ConsumerWidget {
                         ),
                         child: Text(
                           'Logout',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -382,7 +398,34 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildWelcomeSection(BuildContext context) {
+  void _handleLogout(BuildContext context, WidgetRef ref) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+
+    try {
+      ref.read(authProvider.notifier).signOut();
+
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal Logout: $e')));
+      }
+    }
+  }
+
+  Widget _buildWelcomeSection(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final displayName = authState.userName ?? 'Kocak';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -403,9 +446,12 @@ class DashboardPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome Back!',
+                  'Welcome Back! $displayName',
                   style: GoogleFonts.poppins(
-                    fontSize: ResponsiveConstants.getResponsiveFontSize(context, 20.0),
+                    fontSize: ResponsiveConstants.getResponsiveFontSize(
+                      context,
+                      20.0,
+                    ),
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -414,18 +460,17 @@ class DashboardPage extends ConsumerWidget {
                 Text(
                   'Manage your items efficiently',
                   style: GoogleFonts.inter(
-                    fontSize: ResponsiveConstants.getResponsiveFontSize(context, 14.0),
+                    fontSize: ResponsiveConstants.getResponsiveFontSize(
+                      context,
+                      14.0,
+                    ),
                     color: Colors.white70,
                   ),
                 ),
               ],
             ),
           ),
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 48,
-            color: Colors.white70,
-          ),
+          Icon(Icons.inventory_2_outlined, size: 48, color: Colors.white70),
         ],
       ),
     );
@@ -434,7 +479,10 @@ class DashboardPage extends ConsumerWidget {
   Widget _buildStatsSection(BuildContext context, List<Item> items) {
     final totalItems = items.length;
     final categories = items.map((item) => item.category).toSet().length;
-    final totalQuantity = items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final totalQuantity = items.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
 
     return Row(
       children: [
@@ -449,7 +497,7 @@ class DashboardPage extends ConsumerWidget {
         const SizedBox(width: 12),
         Expanded(
           child: StatsCard(
-            title: 'Categories', 
+            title: 'Categories',
             value: categories.toString(),
             icon: Icons.category,
             color: Colors.green,
@@ -473,34 +521,27 @@ class DashboardPage extends ConsumerWidget {
 class BackgroundPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.04)
-      ..strokeWidth = 0.5
-      ..style = PaintingStyle.stroke;
+    final paint =
+        Paint()
+          ..color = Colors.grey.withOpacity(0.04)
+          ..strokeWidth = 0.5
+          ..style = PaintingStyle.stroke;
 
     const spacing = 40.0;
-    
+
     // Draw subtle grid pattern
     for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    
+
     for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
-    
+
     // Draw subtle diagonal lines
     paint.color = const Color(0xFF011936).withOpacity(0.02);
     paint.strokeWidth = 0.3;
-    
+
     for (double i = -size.height; i < size.width; i += spacing * 3) {
       canvas.drawLine(
         Offset(i, 0),
@@ -508,11 +549,11 @@ class BackgroundPatternPainter extends CustomPainter {
         paint,
       );
     }
-    
+
     // Add some dots for extra pattern
     paint.style = PaintingStyle.fill;
     paint.color = Colors.blue.withOpacity(0.03);
-    
+
     for (double x = spacing / 2; x < size.width; x += spacing) {
       for (double y = spacing / 2; y < size.height; y += spacing) {
         canvas.drawCircle(Offset(x, y), 1.0, paint);

@@ -5,7 +5,7 @@ import '../../../../core/widgets/custom_textfield.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/widgets/common/custom_app_bar.dart';
-import '../../domain/models/item_model.dart';
+import '../../../../core/domain/models/item_model.dart';
 import '../providers/item_provider.dart';
 
 class AddItemPage extends ConsumerStatefulWidget {

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginState {
   final bool isLoading;
@@ -30,33 +31,33 @@ class LoginState {
 }
 
 class LoginNotifier extends StateNotifier<LoginState> {
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  
   LoginNotifier() : super(const LoginState()) {
-    _checkLoginSession();
+    _checkAuthState();
   }
 
-  // Check if user is already logged in
-  Future<void> _checkLoginSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-    final userEmail = prefs.getString('userEmail');
-    final loginTime = prefs.getString('loginTime');
+  // Check current Firebase Auth state
+  Future<void> _checkAuthState() async {
+    final user = _firebaseAuth.currentUser;
+    if (user != null) {
+      state = state.copyWith(
+        isAuthenticated: true,
+        userEmail: user.email,
+      );
+    }
     
-    if (isLoggedIn && userEmail != null && loginTime != null) {
-      // Check if login session is still valid (e.g., within 30 days)
-      final lastLoginTime = DateTime.parse(loginTime);
-      final now = DateTime.now();
-      final difference = now.difference(lastLoginTime).inDays;
-      
-      if (difference < 30) { // Session valid for 30 days
+    // Listen to auth state changes
+    _firebaseAuth.authStateChanges().listen((User? user) {
+      if (user != null) {
         state = state.copyWith(
           isAuthenticated: true,
-          userEmail: userEmail,
+          userEmail: user.email,
         );
       } else {
-        // Session expired, clear it
-        await _clearSession();
+        state = const LoginState();
       }
-    }
+    });
   }
 
   Future<void> login({
@@ -66,38 +67,53 @@ class LoginNotifier extends StateNotifier<LoginState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
+      // Sign in with Firebase Auth
+      final UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
       
-      // Dummy user validation
-      final Map<String, String> dummyUsers = {
-        'admin@gmail.com': '123456',
-        'user@gmail.com': 'password',
-        'test@gmail.com': 'test123',
-      };
-      
-      print('Debug: Attempting login with email: $email, password: $password'); // Debug line
-      
-      if (dummyUsers.containsKey(email) && dummyUsers[email] == password) {
-        print('Debug: Login successful'); // Debug line
-        
-        // Save login session and history
-        await _saveLoginSession(email);
+      final user = userCredential.user;
+      if (user != null) {
+        // Save login session for offline tracking
+        await _saveLoginSession(user.email!);
         
         state = state.copyWith(
           isLoading: false,
           isAuthenticated: true,
-          userEmail: email,
-        );
-      } else {
-        print('Debug: Login failed - invalid credentials'); // Debug line
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Email atau password salah',
+          userEmail: user.email,
         );
       }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'Email tidak terdaftar';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Password salah';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Format email tidak valid';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Akun telah dinonaktifkan';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Terlalu banyak percobaan. Coba lagi nanti';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Email atau password salah';
+          break;
+        default:
+          errorMessage = 'Login gagal: ${e.message}';
+      }
+      
+      state = state.copyWith(
+        isLoading: false,
+        error: errorMessage,
+      );
     } catch (e) {
-      print('Debug: Login error: $e'); // Debug line
       state = state.copyWith(
         isLoading: false,
         error: 'Terjadi kesalahan: ${e.toString()}',
@@ -110,47 +126,51 @@ class LoginNotifier extends StateNotifier<LoginState> {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
       
-      print('Debug: Saving login session for $email'); // Debug line
-      
       // Save current session
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('userEmail', email);
       await prefs.setString('loginTime', now.toIso8601String());
       
-      print('Debug: Login session saved successfully'); // Debug line
-      
       // Save login history (simplified to avoid complex operations)
       await prefs.setString('lastLogin_$email', now.toIso8601String());
       
     } catch (e) {
-      print('Debug: Error saving login session: $e'); // Debug line
       // Don't throw error here, just log it
     }
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userEmail = state.userEmail;
-    
-    if (userEmail != null) {
-      // Save logout time in history
-      final now = DateTime.now();
-      List<String> loginHistory = prefs.getStringList('loginHistory') ?? [];
+    try {
+      final userEmail = state.userEmail;
+      // Sign out from Firebase
+      await _firebaseAuth.signOut();
       
-      final logoutEntry = {
-        'email': userEmail,
-        'logoutTime': now.toIso8601String(),
-        'action': 'logout',
-      };
+      // Save logout history for tracking
+      if (userEmail != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final now = DateTime.now();
+        List<String> loginHistory = prefs.getStringList('loginHistory') ?? [];
+        
+        final logoutEntry = {
+          'email': userEmail,
+          'logoutTime': now.toIso8601String(),
+          'action': 'logout',
+        };
+        
+        loginHistory.add(logoutEntry.toString());
+        await prefs.setStringList('loginHistory', loginHistory);
+        await prefs.setString('lastLogout_$userEmail', now.toIso8601String());
+      }
       
-      loginHistory.add(logoutEntry.toString());
-      await prefs.setStringList('loginHistory', loginHistory);
-      await prefs.setString('lastLogout_$userEmail', now.toIso8601String());
+      // Clear local session
+      await _clearSession();
+      
+      // State will be updated automatically by auth state listener
+    } catch (e) {
+      state = state.copyWith(
+        error: 'Gagal logout: ${e.toString()}',
+      );
     }
-    
-    // Clear current session
-    await _clearSession();
-    state = const LoginState();
   }
 
   Future<void> _clearSession() async {
@@ -175,6 +195,34 @@ class LoginNotifier extends StateNotifier<LoginState> {
     }
     return null;
   }
+
+  // Google Sign-In removed: use email/password or other auth flows
+
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'Email tidak terdaftar';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Format email tidak valid';
+          break;
+        default:
+          errorMessage = 'Gagal mengirim email reset: ${e.message}';
+      }
+      throw errorMessage;
+    }
+  }
+
+  Future<void> googleAuth() async {
+    
+
+  }
+
+
 
   void clearError() {
     state = state.copyWith(error: null);

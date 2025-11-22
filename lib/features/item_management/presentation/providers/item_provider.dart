@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/models/item_model.dart';
+import '../../../../core/domain/models/item_model.dart';
 
 class ItemState {
   final List<Item> items;

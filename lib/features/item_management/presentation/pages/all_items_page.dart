@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/responsive_constants.dart';
 import '../../../../core/widgets/common/custom_app_bar.dart';
-import '../../domain/models/item_model.dart';
+import '../../../../core/domain/models/item_model.dart';
 import '../providers/item_provider.dart';
 import 'add_item_page.dart';
 

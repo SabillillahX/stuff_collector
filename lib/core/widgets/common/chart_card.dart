@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../constants/responsive_constants.dart';
-import '../../../features/item_management/domain/models/item_model.dart';
+import '../../domain/models/item_model.dart';
 
 class ChartCard extends StatelessWidget {
   final List<Item> items;

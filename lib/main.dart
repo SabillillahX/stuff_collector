@@ -1,18 +1,23 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'core/domain/services/firebase_options.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/dashboard/presentation/pages/dashboard_page.dart';
 import 'features/onboarding/presentation/pages/onboarding_page.dart';
-import 'features/auth/presentation/providers/login_provider.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 
-void main() {
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerWidget {
@@ -20,7 +25,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loginState = ref.watch(loginProvider);
+    final authState = ref.watch(authProvider);
     final onboardingState = ref.watch(onboardingProvider);
 
     return MaterialApp(
@@ -38,28 +43,29 @@ class MyApp extends ConsumerWidget {
           elevation: 0,
         ),
       ),
-      home: _getInitialPage(onboardingState, loginState),
+      home: _getInitialPage(onboardingState, authState),
     );
   }
-  
-  Widget _getInitialPage(OnboardingState onboardingState, LoginState loginState) {
+
+  Widget _getInitialPage(
+    OnboardingState onboardingState,
+    AuthState authState,
+  ) {
     // Show loading while checking states
     if (onboardingState.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    
+
     // If onboarding not completed, show onboarding
     if (!onboardingState.isCompleted) {
       return const OnboardingPage();
     }
-    
+
     // If onboarding completed, check login status
-    if (loginState.isAuthenticated) {
+    if (authState.isAuthenticated) {
       return const DashboardPage();
     }
-    
+
     // Default to login page
     return const LoginPage();
   }

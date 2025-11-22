@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import '../../../../core/widgets/custom_textfield.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/constants/responsive_constants.dart';
@@ -10,7 +11,6 @@ import '../providers/auth_provider.dart';
 import '../controllers/auth_controller.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
-
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -243,19 +243,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton.icon(
-                  onPressed: authState.isLoading ? null : _handleGoogleSignIn,
+                  onPressed: () {
+                    if (authState.isLoading) {
+                      LoadingAnimationWidget.staggeredDotsWave(
+                        color: Colors.blue,
+                        size: 24,
+                      );
+                    } else {
+                      _handleGoogleSignIn();
+                    }
+                  },
                   icon: Container(
                     width: 20,
                     height: 20,
                     decoration: const BoxDecoration(
                       image: DecorationImage(
-                        image: NetworkImage('https://developers.google.com/identity/images/g-logo.png'),
+                        image: NetworkImage(
+                          'https://developers.google.com/identity/images/g-logo.png',
+                        ),
                         fit: BoxFit.contain,
                       ),
                     ),
                   ),
                   label: Text(
-                    authState.isLoading ? 'Masuk dengan Google...' : 'Masuk dengan Google',
+                    authState.isLoading
+                        ? 'Masuk dengan Google...'
+                        : 'Masuk dengan Google',
                     style: GoogleFonts.inter(
                       color: const Color(0xFF011936),
                       fontWeight: FontWeight.w500,
@@ -377,19 +390,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       ref.read(authProvider.notifier).clearError();
-      
-      final result = await ref.read(authProvider.notifier).signInWithGoogleFirebase();
-      
+
+      final result =
+          await ref.read(authProvider.notifier).signInWithGoogleFirebase();
+
       if (result != null && mounted && !_isDisposed) {
         final authController = ref.read(authControllerProvider.notifier);
         authController.clearLoginFields();
-        
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const DashboardPage()),
         );
       }
-      
     } catch (e) {
       if (mounted && !_isDisposed) {
         ScaffoldMessenger.of(context).showSnackBar(

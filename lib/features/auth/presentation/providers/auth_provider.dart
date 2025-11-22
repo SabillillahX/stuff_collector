@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,7 +89,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _initializeGoogleSignIn() async {
     if (!_isGoogleSignInInitialized) {
       await _googleSignIn.initialize(
-        serverClientId: '622769924606-fpb755o7jqvg1e5aej7j2jen6vp9ptst.apps.googleusercontent.com'
+        serverClientId: dotenv.get('SERVER_CLIENT_ID')
       );
     }
     _isGoogleSignInInitialized = true;
